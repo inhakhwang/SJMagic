@@ -1,19 +1,23 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using SJMagic.Base;
 using SJMagic.Services;
+using SJMagic.Core.Media;
 
 namespace SJMagic.ViewModels
 {
     public class MainViewModel : ObservableObject
     {
         private readonly FileService _fileService;
-        private readonly MediaService _mediaService;
+        private readonly VideoProcessor _videoProcessor;
         private readonly ImageService _imageService;
+        private readonly LoggingService _loggingService;
+        private readonly Mp4StructureParser _mp4Parser;
 
         private ObservableCollection<FileInfo> _mediaFiles;
         public ObservableCollection<FileInfo> MediaFiles
@@ -85,20 +89,37 @@ namespace SJMagic.ViewModels
         }
 
         public ICommand OpenFolderCommand { get; }
+        public ICommand OpenVideoFileCommand { get; }
         public ICommand ConvertCommand { get; }
+        public ICommand SplitVideoCommand { get; }
         public ICommand RotateImageCommand { get; }
         public ICommand FlipImageCommand { get; }
         public ICommand SaveImageCommand { get; }
+        public ICommand OpenLogFileCommand { get; }
+        public ICommand AnalyzeMp4Command { get; }
+
+        private int _splitInterval = 30;
+        public int SplitInterval
+        {
+            get => _splitInterval;
+            set => SetProperty(ref _splitInterval, value);
+        }
 
         public MainViewModel()
         {
             _fileService = new FileService();
-            _mediaService = new MediaService();
+            _videoProcessor = new VideoProcessor();
             _imageService = new ImageService();
+            _loggingService = new LoggingService();
+            _mp4Parser = new Mp4StructureParser();
             MediaFiles = new ObservableCollection<FileInfo>();
 
             OpenFolderCommand = new RelayCommand(OpenFolder);
+            OpenVideoFileCommand = new RelayCommand(OpenVideoFile);
             ConvertCommand = new RelayCommand(async () => await ConvertSelectedMedia(), () => SelectedMedia != null && _fileService.IsVideo(SelectedMedia));
+            SplitVideoCommand = new RelayCommand(async () => await SplitSelectedVideo(), () => SelectedMedia != null && _fileService.IsVideo(SelectedMedia));
+            OpenLogFileCommand = new RelayCommand(OpenLogFile);
+            AnalyzeMp4Command = new RelayCommand(AnalyzeSelectedMp4, () => SelectedMedia != null && _fileService.IsVideo(SelectedMedia));
             
             RotateImageCommand = new RelayCommand<string>(dir => {
                 ImageRotationAngle += (dir == "CW" ? 90 : -90);
@@ -123,6 +144,18 @@ namespace SJMagic.ViewModels
                 MediaFiles.Clear();
                 foreach (var file in files) MediaFiles.Add(file);
                 Log($"{files.Count}개의 파일을 불러왔습니다.", "SUCCESS");
+            }
+        }
+
+        private void OpenVideoFile()
+        {
+            var path = _fileService.SelectFile("Video Files|*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.webm");
+            if (!string.IsNullOrEmpty(path))
+            {
+                var fileInfo = new FileInfo(path);
+                MediaFiles.Add(fileInfo);
+                SelectedMedia = fileInfo;
+                Log($"영상 파일이 추가되었습니다: {fileInfo.Name}", "SUCCESS");
             }
         }
 
@@ -160,11 +193,31 @@ namespace SJMagic.ViewModels
             string fileNameWithoutExt = Path.GetFileNameWithoutExtension(SelectedMedia.Name);
             string outputPath = Path.Combine(outputDir, $"{fileNameWithoutExt}_EditorFriendly.mp4");
 
-            bool success = await _mediaService.ConvertToEditorFriendly(inputPath, outputPath, msg => Log(msg, "PROCESS"));
+            // 고가독성 엔진 사용
+            bool success = await _videoProcessor.ConvertToEditorFriendlyAsync(inputPath, outputPath, msg => Log(msg, "PROCESS"));
             
             if (success)
             {
                 Log($"영상 변환 완료: {outputPath}", "SUCCESS");
+            }
+        }
+
+        private async Task SplitSelectedVideo()
+        {
+            if (SelectedMedia == null || !IsVideoVisible) return;
+
+            string inputPath = SelectedMedia.FullName;
+            string outputDir = Path.Combine(SelectedMedia.DirectoryName, $"{Path.GetFileNameWithoutExtension(SelectedMedia.Name)}_Splits");
+
+            Log($"동영상 쪼개기 준비 중 (학습 모드 적용)...", "INFO");
+            // 고가독성 엔진 사용
+            bool success = await _videoProcessor.SplitVideoAsync(inputPath, outputDir, SplitInterval, msg => Log(msg, "PROCESS"));
+
+            if (success)
+            {
+                Log($"동영상 쪼개기 작업이 모두 완료되었습니다. 저장소: {outputDir}", "SUCCESS");
+                // Open the folder automatically
+                try { Process.Start("explorer.exe", outputDir); } catch { }
             }
         }
 
@@ -193,6 +246,45 @@ namespace SJMagic.ViewModels
         {
             string timestamp = DateTime.Now.ToString("HH:mm:ss");
             LogContent += $"[{timestamp}] [{level}] {message}{Environment.NewLine}";
+            _loggingService.LogToFile(message, level);
+        }
+
+        private void OpenLogFile()
+        {
+            try
+            {
+                string path = _loggingService.GetCurrentLogFilePath();
+                if (File.Exists(path))
+                {
+                    Process.Start("notepad.exe", path);
+                }
+                else
+                {
+                    // Create empty file if not exists yet
+                    File.WriteAllText(path, "");
+                    Process.Start("notepad.exe", path);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"로그 파일을 열 수 없습니다: {ex.Message}", "ERROR");
+            }
+        }
+
+        private void AnalyzeSelectedMp4()
+        {
+            if (SelectedMedia == null || !IsVideoVisible) return;
+
+            LogContent = ""; // Clear log for clean view
+            Log($"[순수 C# 엔진] {SelectedMedia.Name} 구조 분석을 시작합니다...", "DEBUG");
+
+            var results = _mp4Parser.ParseStructure(SelectedMedia.FullName);
+            foreach (var line in results)
+            {
+                LogContent += line + Environment.NewLine;
+            }
+
+            Log("구조 분석이 완료되었습니다. 위 리스트에서 MP4 Box 계층을 확인하세요.", "SUCCESS");
         }
     }
 }

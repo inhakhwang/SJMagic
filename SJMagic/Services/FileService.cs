@@ -25,6 +25,20 @@ namespace SJMagic.Services
             return null;
         }
 
+        public string SelectFile(string filter = "Media Files|*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.webm;*.jpg;*.jpeg;*.png;*.bmp;*.gif")
+        {
+            using (var dialog = new WinForms.OpenFileDialog())
+            {
+                dialog.Filter = filter;
+                dialog.Title = "미디어 파일을 선택하세요";
+                if (dialog.ShowDialog() == WinForms.DialogResult.OK)
+                {
+                    return dialog.FileName;
+                }
+            }
+            return null;
+        }
+
         public List<FileInfo> GetMediaFiles(string folderPath)
         {
             if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))

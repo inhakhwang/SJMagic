@@ -21,10 +21,14 @@
 
         <!-- Top Menu -->
         <Menu Grid.Row="0">
-            <MenuItem Header="File">
-                <MenuItem Header="Open Folder" Command="{Binding OpenFolderCommand}"/>
+            <MenuItem Header="파일 (F)">
+                <MenuItem Header="폴더 열기 (O)" Command="{Binding OpenFolderCommand}"/>
+                <MenuItem Header="동영상 파일 추가 (V)" Command="{Binding OpenVideoFileCommand}"/>
                 <Separator/>
-                <MenuItem Header="Exit" Click="MenuExit_Click"/>
+                <MenuItem Header="종료 (X)" Click="MenuExit_Click"/>
+            </MenuItem>
+            <MenuItem Header="동영상 편집 (E)">
+                <MenuItem Header="동영상 쪼개기 (S)" Command="{Binding SplitVideoCommand}"/>
             </MenuItem>
         </Menu>
 
@@ -110,11 +114,22 @@
                     
                     <Separator Margin="0,10"/>
                     
-                    <Button Content="🎬 Convert to Editor-Friendly" 
+                    <Button Content="🔍 MP4 구조 분석 (Pure C#)" 
+                            Command="{Binding AnalyzeMp4Command}"
+                            Height="35" Background="#2D3142" Margin="0,0,0,5"/>
+                    <TextBlock Text="* 파일 내부 Box 구조 공부용" FontSize="10" Foreground="#6272A4" 
+                               HorizontalAlignment="Center" Margin="0,0,0,10"/>
+
+                    <Button Content="✂️ 동영상 쪼개기 (30초)" 
+                            Command="{Binding SplitVideoCommand}"
+                            Height="40" Background="#2D3142" Margin="0,0,0,5"/>
+                    <TextBlock Text="* 30초 단위 빠른 분할" FontSize="10" Foreground="#6272A4" 
+                               HorizontalAlignment="Center" Margin="0,0,0,10"/>
+
+                    <Button Content="🎬 Editor-Friendly 변환" 
                             Command="{Binding ConvertCommand}"
-                            Height="50" FontWeight="Bold" Background="#2D3142" Margin="0,0,0,5"/>
-                    
-                    <TextBlock Text="* All-Intra (GOP 1) Encoding" FontSize="10" Foreground="#6272A4" 
+                            Height="40" FontWeight="Bold" Background="#2D3142" Margin="0,0,0,5"/>
+                    <TextBlock Text="* 모든 프레임 키프레임화 (GOP 1)" FontSize="10" Foreground="#6272A4" 
                                HorizontalAlignment="Center"/>
                 </StackPanel>
 
@@ -160,6 +175,8 @@
             <TextBox x:Name="txtLog" IsReadOnly="True" 
                      Text="{Binding LogContent, Mode=OneWay}"
                      TextChanged="txtLog_TextChanged"
+                     MouseDoubleClick="txtLog_MouseDoubleClick"
+                     ToolTip="Double-click to open log file"
                      FontFamily="Consolas" FontSize="11"/>
         </Grid>
     </Grid>

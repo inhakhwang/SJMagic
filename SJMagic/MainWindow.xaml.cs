@@ -33,6 +33,14 @@ namespace SJMagic
             txtLog.ScrollToEnd();
         }
 
+        private void txtLog_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (ViewModel.OpenLogFileCommand.CanExecute(null))
+            {
+                ViewModel.OpenLogFileCommand.Execute(null);
+            }
+        }
+
         private void MenuExit_Click(object sender, RoutedEventArgs e)
         {
             Application.Current.Shutdown();

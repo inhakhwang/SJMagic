@@ -75,11 +75,15 @@
     <Compile Include="Base\ObservableObject.cs" />
     <Compile Include="Base\RelayCommand.cs" />
     <Compile Include="ViewModels\MainViewModel.cs" />
+    <Compile Include="Core\Media\FFmpegCommandBuilder.cs" />
+    <Compile Include="Core\Media\VideoProcessor.cs" />
+    <Compile Include="Core\Media\Mp4StructureParser.cs" />
     <Compile Include="Services\FileService.cs" />
-    <Compile Include="Services\MediaService.cs" />
     <Compile Include="Services\ImageService.cs" />
+    <Compile Include="Services\LoggingService.cs" />
+  <ItemGroup>
+    <None Include="Core\Media\CodecGuide.md" />
   </ItemGroup>
-
 
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">
