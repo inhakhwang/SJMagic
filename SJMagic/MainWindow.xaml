@@ -4,8 +4,13 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:SJMagic"
+        xmlns:vm="clr-namespace:SJMagic.ViewModels"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="SJMagic Studio" Height="600" Width="1000">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+    
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Top: Menu -->
@@ -17,24 +22,20 @@
         <!-- Top Menu -->
         <Menu Grid.Row="0">
             <MenuItem Header="File">
-                <MenuItem Header="Open Folder" Click="MenuItem_Click"/>
-                <MenuItem Header="Save"/>
+                <MenuItem Header="Open Folder" Command="{Binding OpenFolderCommand}"/>
                 <Separator/>
                 <MenuItem Header="Exit" Click="MenuExit_Click"/>
             </MenuItem>
-            <MenuItem Header="Edit"/>
-            <MenuItem Header="View"/>
-            <MenuItem Header="Help"/>
         </Menu>
 
         <!-- Main Content (Middle) -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" MinWidth="150"/> <!-- Left: File List -->
-                <ColumnDefinition Width="Auto"/>             <!-- Splitter -->
-                <ColumnDefinition Width="*"/>                <!-- Center: Image -->
-                <ColumnDefinition Width="Auto"/>             <!-- Splitter -->
-                <ColumnDefinition Width="180" MinWidth="120"/> <!-- Right: Buttons -->
+                <ColumnDefinition Width="250" MinWidth="150"/> <!-- Left: File List -->
+                <ColumnDefinition Width="Auto"/>               <!-- Splitter -->
+                <ColumnDefinition Width="*"/>                  <!-- Center: Viewer -->
+                <ColumnDefinition Width="Auto"/>               <!-- Splitter -->
+                <ColumnDefinition Width="200" MinWidth="150"/> <!-- Right: Toolbar -->
             </Grid.ColumnDefinitions>
 
             <!-- Left: File List -->
@@ -43,41 +44,112 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <TextBlock Text="File List" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="5,0,0,5"/>
-                <ListBox x:Name="lbFiles" Grid.Row="1" DisplayMemberPath="Name" SelectionChanged="lbFiles_SelectionChanged">
+                <TextBlock Text="Media Explorer" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="5,0,0,5"/>
+                <ListBox x:Name="lbFiles" Grid.Row="1" 
+                         ItemsSource="{Binding MediaFiles}" 
+                         SelectedItem="{Binding SelectedMedia}"
+                         DisplayMemberPath="Name">
                 </ListBox>
             </Grid>
 
             <!-- Splitter 1 -->
             <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent"/>
 
-            <!-- Center: Image Viewer -->
+            <!-- Center: Viewer -->
             <Border Grid.Column="2" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0" Background="#11111B">
                 <Grid>
-                    <TextBlock Text="Image Preview Area" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#44475A" FontSize="18"/>
-                    <Image x:Name="imgDisplay" Margin="20" Stretch="Uniform">
-                        <!-- Placeholder for logic -->
-                        <Image.Effect>
-                            <DropShadowEffect BlurRadius="15" ShadowDepth="0" Opacity="0.5"/>
-                        </Image.Effect>
+                    <!-- Background Placeholder -->
+                    <TextBlock Text="Select a file to preview" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#44475A" FontSize="18">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedMedia}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- Image Preview -->
+                    <Image x:Name="imgDisplay" Margin="10" Stretch="Uniform"
+                           Visibility="{Binding IsImageVisible, Converter={StaticResource BoolToVis}}"
+                           Source="{Binding SelectedMedia.FullName}">
+                        <Image.LayoutTransform>
+                            <TransformGroup>
+                                <RotateTransform Angle="{Binding ImageRotationAngle}"/>
+                                <ScaleTransform ScaleX="{Binding ImageScaleX}" ScaleY="{Binding ImageScaleY}"/>
+                            </TransformGroup>
+                        </Image.LayoutTransform>
                     </Image>
+
+                    <!-- Video Preview -->
+                    <MediaElement x:Name="mePlayer" Margin="10" LoadedBehavior="Manual" UnloadedBehavior="Stop"
+                                  Visibility="{Binding IsVideoVisible, Converter={StaticResource BoolToVis}}"
+                                  Source="{Binding SelectedMedia.FullName}"
+                                  Stretch="Uniform"/>
                 </Grid>
             </Border>
 
             <!-- Splitter 2 -->
             <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent"/>
 
-            <!-- Right: Action Buttons -->
+            <!-- Right: Actions -->
             <Grid Grid.Column="4" Margin="5">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <TextBlock Text="Actions" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="5,0,0,5"/>
-                <StackPanel Grid.Row="1">
-                    <Button x:Name="btnAbout" Content="✨ About SJMagic" Click="btnAbout_Click" Height="40" FontSize="14" FontWeight="Bold"/>
+                <TextBlock Text="{Binding ToolPanelTitle}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" Margin="5,0,0,5"/>
+                
+                <!-- Video Tools -->
+                <StackPanel Grid.Row="1" Visibility="{Binding IsVideoVisible, Converter={StaticResource BoolToVis}}">
+                    <Button Content="▶ Play" Click="btnPlay_Click" Margin="0,0,0,5"/>
+                    <Button Content="⏸ Pause" Click="btnPause_Click" Margin="0,0,0,5"/>
+                    
+                    <Separator Margin="0,10"/>
+                    
+                    <Button Content="🎬 Convert to Editor-Friendly" 
+                            Command="{Binding ConvertCommand}"
+                            Height="50" FontWeight="Bold" Background="#2D3142" Margin="0,0,0,5"/>
+                    
+                    <TextBlock Text="* All-Intra (GOP 1) Encoding" FontSize="10" Foreground="#6272A4" 
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Image Tools -->
+                <StackPanel Grid.Row="1" Visibility="{Binding IsImageVisible, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Transform" FontSize="11" Opacity="0.7" Margin="0,0,0,5"/>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="↺ Rotate" Command="{Binding RotateImageCommand}" CommandParameter="CCW" Margin="0,0,2,0"/>
+                        <Button Grid.Column="1" Content="↻ Rotate" Command="{Binding RotateImageCommand}" CommandParameter="CW" Margin="2,0,0,0"/>
+                    </Grid>
+                    
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="↔ Flip H" Command="{Binding FlipImageCommand}" CommandParameter="H" Margin="0,0,2,0"/>
+                        <Button Grid.Column="1" Content="↕ Flip V" Command="{Binding FlipImageCommand}" CommandParameter="V" Margin="2,0,0,0"/>
+                    </Grid>
+
+                    <Separator Margin="0,10"/>
+
+                    <Button Content="💾 Save Processed Image" 
+                            Command="{Binding SaveImageCommand}"
+                            Height="50" FontWeight="Bold" Background="#2D3142" Foreground="#50FA7B" Margin="0,0,0,5"/>
+                    
+                    <TextBlock Text="* New file in 'Converted' folder" FontSize="10" Foreground="#6272A4" 
+                               HorizontalAlignment="Center"/>
                 </StackPanel>
             </Grid>
+
         </Grid>
 
         <!-- Splitter 3 -->
@@ -85,17 +157,11 @@
 
         <!-- Bottom: Logs -->
         <Grid Grid.Row="3" Margin="5">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <StackPanel Orientation="Horizontal" Margin="5,0,0,3">
-                <TextBlock Text="Output Log" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold"/>
-                <TextBlock x:Name="tbLogStatus" Text=" - Ready" Foreground="#6272A4" FontSize="11" Margin="10,2,0,0"/>
-            </StackPanel>
-            <TextBox x:Name="txtLog" Grid.Row="1" IsReadOnly="True" VerticalScrollBarVisibility="Visible" 
-                     TextWrapping="Wrap" AcceptsReturn="True" 
-                     FontFamily="Consolas" FontSize="12"/>
+            <TextBox x:Name="txtLog" IsReadOnly="True" 
+                     Text="{Binding LogContent, Mode=OneWay}"
+                     TextChanged="txtLog_TextChanged"
+                     FontFamily="Consolas" FontSize="11"/>
         </Grid>
     </Grid>
 </Window>
+
